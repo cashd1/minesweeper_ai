@@ -36,11 +36,10 @@ function getCell(x, y) {
 }
 
 function clickCell(x, y, button) {
+    console.log("clicking",y+1,"_",x+1,button)
     let element;
-    if (button === undefined) {
-        let cell = getCellFromId(x)
-        if (cell) 
-            element = cell.element.get(0);
+    if (button == undefined) {
+        element = getCellFromId(x).element.get(0);
         button = y;
     } else {
         element = getCell(x,y).element.get(0);
@@ -49,7 +48,7 @@ function clickCell(x, y, button) {
     if (element) {
         element.dispatchEvent(new MouseEvent("mousedown", {'view':window, 'bubbles':true, 'cancelable':true, 'button':button}));
         element.dispatchEvent(new MouseEvent("mouseup", {'view':window, 'bubbles':true, 'cancelable':true, 'button':button}));
-    } 
+    }
     scanBoard();
 }
 
@@ -176,29 +175,54 @@ function showProbabilities() {
     // too many similar probabilties. make the user choose one :)
     if (min_count.length > 1) {
         // multiple 0% cells
-        if (min <= 50) {
-            /*
+        if (min == 0) {
             for (let id of min_count) {
                 clickCell(id, 0);
-            }*/
+            }
 
         } else {
             console.log("[!!] This is a tough choice. Click a gray cell. [!!]");
             for (let id of min_count) {
                 let el_cell = getCellFromId(id).element.get(0);
                 el_cell.classList.add("highlight");
-                // no_zero = false;
+                no_zero = false;
             }
         }
     }
 
-    // just click all of the least potential cells
-    for (let id of min_count) {
-        clickCell(id, 0);
-        no_zero = true;
-    }
-
     return no_zero;
+}
+
+
+// reveal cells that are guaranteed to be safe (Ex. a cell with a '1' that has 1 nearby flag is correct. reveal all the other cells around it)
+function safeMoves() {
+    console.log('t')
+    for (let cell_id in open_cells) {
+        let open_cell = getCellFromId(cell_id);
+        let open_cell_value = open_cell.value;
+        let safe = false;
+         // look at surrounding cells
+        for (let b = 0; b < open_cells[cell_id].length; b++) {
+            let border_cell = getCellFromId(border_cells[open_cells[cell_id][b]]);
+             if (border_cell.value == -1) {
+                open_cell_value--;
+            }
+             // this group of cells is safe
+            if (open_cell_value <= 0) {
+                safe = true;
+                break;
+            }
+        }
+         // reveal all other cells
+        if (safe) {
+            for (let b = 0; b < open_cells[cell_id].length; b++) {
+                console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`);
+                clickCell(border_cells[open_cells[cell_id][b]], 0);
+            }
+            return true;
+        }
+        return false;
+    }
 }
 
 // returns whether game is over
@@ -407,19 +431,22 @@ else if the augmented column value is equal to the maximum bound then
 let iterations = 0;
 let max_moves = 150;
 function runAI() {
-    if (iterations == 0) clickCell(0,0,0);
+    clickCell(0,0,0)
+    calculateMove()
+    // safeMoves()
+    // if (iterations == 0) clickCell(0,0,0);
 
-    // clear any red cells
-    for (let id of min_count) {
-        el_cell = getCellFromId(id);
-        if (el_cell.element)
-            el_cell.element.get(0).classList.remove('highlight');
-    }
+    // // clear any red cells
+    // for (let id of min_count) {
+    //     el_cell = getCellFromId(id);
+    //     if (el_cell.element)
+    //         el_cell.element.get(0).classList.remove('highlight');
+    // }
 
-    while (calculateMove() && iterations < max_moves) {
-        iterations++;
-        console.log("continue")
-    }
+    // while (calculateMove() && iterations < max_moves) {
+    //     iterations++;
+    //     console.log("continue")
+    // }
 }
 
 // "Run AI" button
