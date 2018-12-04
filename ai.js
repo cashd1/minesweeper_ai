@@ -39,9 +39,17 @@ function clickCell(x, y, button) {
     console.log("clicking",y+1,"_",x+1,button)
     let element;
     if (button == undefined) {
+        let cell = getCellFromId(x);
+        if (cell.value == -1 && button == 2){
+            return;
+        }
         element = getCellFromId(x).element.get(0);
         button = y;
     } else {
+        let cell = getCell(x,y); 
+        if (cell.value == -1 && button == 2){
+            return;
+        }
         element = getCell(x,y).element.get(0);
     }
 
@@ -224,54 +232,8 @@ function safeMoves() {
         return false;
     }
 }
-
-// returns whether game is over
-let last_mine_matrix = "";
-function calculateMove() {
-    console.log("calling calculate move");
-    scanBoard();
-
-    let mine_matrix = [];
-    let val_matrix = [];
-    // fill 'mine_matrix'
-    for (let cell_id in open_cells) {
-        val_matrix.push(cell_id)
-        let b_cell_indexes = open_cells[cell_id];
-        let new_array = [];
-        new_array.length = border_cells.length + 1;
-        new_array.fill(0.0);
-
-        for (let b = 0; b < b_cell_indexes.length; b++) {
-            let b_cell_index = b_cell_indexes[b];
-            let b_cell = getCellFromId(border_cells[b_cell_index]);
-
-            let val = b_cell.value;
-// -2 : unclicked, -1 : flagged, 0 : no number, 1 - 8 : number
-            console.log("val___---", val);
-            if (val == -2 || val == -1) val = 1;
-            if (val > 0) val = 1;
-            new_array[b_cell_index] = val;
-        }
-        new_array[new_array.length - 1] = getCellFromId(cell_id).value
-        mine_matrix.push(new_array);
-    }
-
-    // gaussian elimination
-    // console.log(JSON.stringify(mine_matrix))
-    let columns = mine_matrix[0].length;
-    let reduced_mine_matrix = gauss(mine_matrix);
-
-
-/*
-Set the maximum bound and minimum bound to zero
-For each column in the row (not including the augmented column of course) if the number is positive add it to the maximum bound and if it is negative then add it to the minimum bound.
-If the augmented column value is equal to the minimum bound then
-   All of the negative numbers in that row are mines and all of the positive values in that row are not mines
-else if the augmented column value is equal to the maximum bound then
-   All of the negative numbers in that row are not mines and all of the positive values in that row are mines.
-*/
-    let changed = false
-    console.log(JSON.stringify(reduced_mine_matrix))
+function processMatrix(reduced_mine_matrix){
+    let columns = reduced_mine_matrix[0].length;
     for (let y = 0; y < reduced_mine_matrix.length; y++) {
         let psum = 0
         let nsum = 0
@@ -281,7 +243,7 @@ else if the augmented column value is equal to the maximum bound then
         let flagAll = false
         let flagPos = false
         let flagNeg = false
-        console.log(columns)
+        //console.log(columns)
         for (let x = 0; x <= columns - 2; x++) {
             let num = reduced_mine_matrix[y][x]
             if (num > 0){
@@ -293,7 +255,7 @@ else if the augmented column value is equal to the maximum bound then
             }
             
         }
-        console.log("psum",psum,"val", reduced_mine_matrix[y][columns-1])
+        // console.log("psum",psum,"val", reduced_mine_matrix[y][columns-1])
         if (pos && neg){
             if ((psum+nsum) == reduced_mine_matrix[y][columns-1]){flagAll = true}
         }else if(pos){
@@ -301,9 +263,9 @@ else if the augmented column value is equal to the maximum bound then
         }else if(neg){
             if ((nsum) == reduced_mine_matrix[y][columns-1]){flagNeg = true}
         }
-        console.log("flagALL", flagAll,"flagPos",flagPos, flagNeg)
+        // console.log("flagALL", flagAll,"flagPos",flagPos, flagNeg)
         var clickedArr = Array(columns-1).fill(false)
-        for (let x = 0; x < columns - 2; x++) {
+        for (let x = 0; x <= columns - 2; x++) {
             cellValue = reduced_mine_matrix[y][x]
             if (flagAll) {
                 if (reduced_mine_matrix[y][x] != 0){
@@ -316,7 +278,7 @@ else if the augmented column value is equal to the maximum bound then
                 }
             } else if (flagPos){
                 let cell = getCellFromId(border_cells[x]);
-                console.log("pos", cellValue)
+                // console.log("pos", cellValue)
                 if (cellValue > 0){
                     if (!clickedArr[x]){
                         clickedArr[x] = true
@@ -348,6 +310,192 @@ else if the augmented column value is equal to the maximum bound then
             }
         }
     }
+    return true
+}
+// returns whether game is over
+let last_mine_matrix = "";
+function calculateMove() {
+    console.log("calling calculate move");
+    scanBoard();
+
+    let mine_matrix = [];
+    let val_matrix = [];
+    // fill 'mine_matrix'
+    for (let cell_id in open_cells) {
+        val_matrix.push(cell_id)
+        let b_cell_indexes = open_cells[cell_id];
+        let new_array = [];
+        new_array.length = border_cells.length + 1;
+        new_array.fill(0.0);
+
+        for (let b = 0; b < b_cell_indexes.length; b++) {
+            let b_cell_index = b_cell_indexes[b];
+            let b_cell = getCellFromId(border_cells[b_cell_index]);
+
+            let val = b_cell.value;
+// -2 : unclicked, -1 : flagged, 0 : no number, 1 - 8 : number
+            //console.log("val___---", val);
+            if (val == -2 || val == -1) val = 1;
+            if (val > 0) val = 1;
+            new_array[b_cell_index] = val;
+        }
+        new_array[new_array.length - 1] = getCellFromId(cell_id).value
+        mine_matrix.push(new_array);
+    }
+
+    // gaussian elimination
+    // console.log(JSON.stringify(mine_matrix))
+    let columns = mine_matrix[0].length;
+    let reduced_mine_matrix = gauss(mine_matrix);
+
+
+/*
+Set the maximum bound and minimum bound to zero
+For each column in the row (not including the augmented column of course) if the number is positive add it to the maximum bound and if it is negative then add it to the minimum bound.
+If the augmented column value is equal to the minimum bound then
+   All of the negative numbers in that row are mines and all of the positive values in that row are not mines
+else if the augmented column value is equal to the maximum bound then
+   All of the negative numbers in that row are not mines and all of the positive values in that row are mines.
+*/
+    // let changed = false
+    // let skip = false
+    // console.log(JSON.stringify(mine_matrix))
+    // for (let y = 0; y < mine_matrix.length; y++) {
+    //     let sum = 0
+    //     let flagThemAll = false
+    //     for (let x = 0; x <= columns - 2; x++) {
+    //         let num = mine_matrix[y][x]
+    //         sum = sum + num
+            
+    //     }
+    //     if ((sum) == mine_matrix[y][columns-1]){flagThemAll = true}
+    //     var clickedArr = Array(columns-1).fill(false)
+    //     for (let x = 0; x <= columns - 2; x++) {
+    //         cellValue = mine_matrix[y][x]
+    //         if (flagThemAll) {
+    //             if (mine_matrix[y][x] != 0){
+    //                 let cell = getCellFromId(border_cells[x]);
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 2)
+    //                     changed = true
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // for (let cell_id in open_cells) {
+    //     let open_cell = getCellFromId(cell_id);
+    //     let open_cell_value = open_cell.value;
+    //     let safe = false;
+    //      // look at surrounding cells
+    //     for (let b = 0; b < open_cells[cell_id].length; b++) {
+    //         let border_cell = getCellFromId(border_cells[open_cells[cell_id][b]]);
+    //          if (border_cell.value == -1) {
+    //             open_cell_value--;
+    //         }
+    //          // this group of cells is safe
+    //         if (open_cell_value <= 0) {
+    //             safe = true;
+    //             break;
+    //         }
+    //     }
+    //      // reveal all other cells
+    //     if (safe) {
+    //         for (let b = 0; b < open_cells[cell_id].length; b++) {
+    //             let bvalue = getCellFromId(border_cells[open_cells[cell_id][b]]).value
+    //             if (bvalue == -2){
+    //                 console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`, open_cell.value);
+    //                 clickCell(border_cells[open_cells[cell_id][b]], 0);
+    //             }
+    //         }
+    //     }
+    // } 
+    // if (changed){
+    //     console.log('test')
+    //     return;
+    // }
+
+
+    console.log(JSON.stringify(reduced_mine_matrix))
+    processMatrix(mine_matrix)
+    // for (let y = 0; y < reduced_mine_matrix.length; y++) {
+    //     let psum = 0
+    //     let nsum = 0
+    //     let qsum = 0
+    //     let pos = false
+    //     let neg = false
+    //     let flagAll = false
+    //     let flagPos = false
+    //     let flagNeg = false
+    //     //console.log(columns)
+    //     for (let x = 0; x <= columns - 2; x++) {
+    //         let num = reduced_mine_matrix[y][x]
+    //         if (num > 0){
+    //             pos = true
+    //             psum = psum + num
+    //         }else if(num < 0) {
+    //             neg = true
+    //             nsum = nsum + num
+    //         }
+            
+    //     }
+    //     // console.log("psum",psum,"val", reduced_mine_matrix[y][columns-1])
+    //     if (pos && neg){
+    //         if ((psum+nsum) == reduced_mine_matrix[y][columns-1]){flagAll = true}
+    //     }else if(pos){
+    //         if ((psum) == reduced_mine_matrix[y][columns-1]){flagPos = true}
+    //     }else if(neg){
+    //         if ((nsum) == reduced_mine_matrix[y][columns-1]){flagNeg = true}
+    //     }
+    //     // console.log("flagALL", flagAll,"flagPos",flagPos, flagNeg)
+    //     var clickedArr = Array(columns-1).fill(false)
+    //     for (let x = 0; x <= columns - 2; x++) {
+    //         cellValue = reduced_mine_matrix[y][x]
+    //         if (flagAll) {
+    //             if (reduced_mine_matrix[y][x] != 0){
+    //                 let cell = getCellFromId(border_cells[x]);
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 2)
+    //                     changed = true
+    //                 }
+    //             }
+    //         } else if (flagPos){
+    //             let cell = getCellFromId(border_cells[x]);
+    //             // console.log("pos", cellValue)
+    //             if (cellValue > 0){
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 2);
+    //                     changed = true
+    //                 }
+    //             } else if (cellValue < 0){
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 0);
+    //                     changed = true
+    //                 }
+    //             }
+    //         } else if (flagNeg){
+    //             let cell = getCellFromId(border_cells[x]);
+    //             if (cellValue > 0){
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 0);
+    //                     changed = true
+    //                 }
+    //             } else if (cellValue < 0){
+    //                 if (!clickedArr[x]){
+    //                     clickedArr[x] = true
+    //                     clickCell(cell.position[0], cell.position[1], 2);
+    //                     changed = true
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    scanBoard()
     let noChanges = true
 
     for (let cell_id in open_cells) {
@@ -371,7 +519,7 @@ else if the augmented column value is equal to the maximum bound then
             for (let b = 0; b < open_cells[cell_id].length; b++) {
                 let bvalue = getCellFromId(border_cells[open_cells[cell_id][b]]).value
                 if (bvalue == -2){
-                    console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`);
+                    console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`, open_cell.value);
                     clickCell(border_cells[open_cells[cell_id][b]], 0);
                 }
             }
@@ -431,7 +579,7 @@ else if the augmented column value is equal to the maximum bound then
 let iterations = 0;
 let max_moves = 150;
 function runAI() {
-    clickCell(0,0,0)
+    clickCell(5,5,0)
     calculateMove()
     // safeMoves()
     // if (iterations == 0) clickCell(0,0,0);
