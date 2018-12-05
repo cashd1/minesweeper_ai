@@ -18,7 +18,7 @@ function getCellFromId(id) {
 
 function getCell(x, y) {
     let index = x + size[0] * y
-    if (x < 0 || y < 0 || x > size[0] || y > size[1] || index < 0 || index >= cells.length || !cells[index])
+    if (x < 0 || y < 0 || y > size[1] || x > size[0] || index < 0 || index >= cells.length || !cells[index])
         return;
 
     let class_val = cells[index].classList[1];
@@ -36,21 +36,29 @@ function getCell(x, y) {
 }
 
 function clickCell(x, y, button) {
+    console.log("clicking",y+1,"_",x+1,button)
     let element;
-    if (button === undefined) {
-        let cell = getCellFromId(x)
-        if (cell) 
-            element = cell.element.get(0);
+    if (button == undefined) {
+        let cell = getCellFromId(x);
+        if (cell.value == -1 && button == 2){
+            return false;
+        }
+        element = getCellFromId(x).element.get(0);
         button = y;
     } else {
+        let cell = getCell(x,y); 
+        if (cell.value == -1 && button == 2){
+            return false;
+        }
         element = getCell(x,y).element.get(0);
     }
 
     if (element) {
         element.dispatchEvent(new MouseEvent("mousedown", {'view':window, 'bubbles':true, 'cancelable':true, 'button':button}));
         element.dispatchEvent(new MouseEvent("mouseup", {'view':window, 'bubbles':true, 'cancelable':true, 'button':button}));
-    } 
+    }
     scanBoard();
+    return true;
 }
 
 var cells = [];
@@ -64,36 +72,50 @@ function scanBoard() {
 
     // find border cells
     let _open_cells = $(".square.open1, .square.open2, .square.open3, .square.open4");
-
+    //console.log('_open_cells',_open_cells)
+    let illegall = []
     _open_cells.each(function(i, e){
         // check all neighboring cells
         let open_cell = getCellFromId(e.id);
+        let position = e.id.replace("#","").split('_');
+        position = [parseInt(position[1])-1, parseInt(position[0])-1];
+        if (position[0] > size[0] || position[1] > size[1]){
+            console.log('illegal');
+            illegall.push(e);
+        } else if (open_cell) {
+            for (let offx = -1; offx <= 1; offx++) {
+                for (let offy = -1; offy <= 1; offy++) {
+                    let cell = getCell(open_cell.position[0]+offx, open_cell.position[1]+offy);
 
-        for (let offx = -1; offx <= 1; offx++) {
-            for (let offy = -1; offy <= 1; offy++) {
-                let cell = getCell(open_cell.position[0]+offx, open_cell.position[1]+offy);
+                    // add untouched cell to collection
+                    if (cell && cell.value <= -1) {
+                        if (!(open_cell.id in open_cells))
+                            open_cells[open_cell.id] = [];
 
-                // add untouched cell to collection
-                if (cell && cell.value <= -1) {
-                    if (!(open_cell.id in open_cells))
-                        open_cells[open_cell.id] = [];
+                        let el_index = border_cells.findIndex((element) => element == cell.id);
+                        if (el_index < 0) {
+                            let position2 = cell.id.replace("#","").split('_');
+                            position2 = [parseInt(position2[1])-1, parseInt(position2[0])-1];
+                            //console.log(position2)
+                            if (position2[0] <= size[0] || position2[1] <= size[1]){
+                                border_cells.push(cell.id);
+                                el_index = border_cells.length - 1;
+                            }
+                        }
+                        if (!open_cells[open_cell.id].includes(el_index))
+                            open_cells[open_cell.id].push(el_index);
 
-                    let el_index = border_cells.findIndex((element) => element == cell.id);
-                    if (el_index < 0) {
-                        border_cells.push(cell.id);
-                        el_index = border_cells.length - 1;
+                        let b_cell = getCellFromId(border_cells[el_index])
+                        //b_cell.element.html(el_index);
+                        b_cell.element.addClass("suspect")
                     }
-                    if (!open_cells[open_cell.id].includes(el_index))
-                        open_cells[open_cell.id].push(el_index);
-
-                    let b_cell = getCellFromId(border_cells[el_index])
-                    //b_cell.element.html(el_index);
-                    b_cell.element.addClass("suspect")
                 }
             }
         }
     });
+    //cleaning up border cells and open cells
 }
+
 
 function prepareAI() {
     iterations = 0;
@@ -176,31 +198,135 @@ function showProbabilities() {
     // too many similar probabilties. make the user choose one :)
     if (min_count.length > 1) {
         // multiple 0% cells
-        if (min <= 50) {
-            /*
+        if (min == 0) {
             for (let id of min_count) {
                 clickCell(id, 0);
-            }*/
+            }
 
         } else {
             console.log("[!!] This is a tough choice. Click a gray cell. [!!]");
             for (let id of min_count) {
                 let el_cell = getCellFromId(id).element.get(0);
                 el_cell.classList.add("highlight");
-                // no_zero = false;
+                no_zero = false;
             }
         }
-    }
-
-    // just click all of the least potential cells
-    for (let id of min_count) {
-        clickCell(id, 0);
-        no_zero = true;
     }
 
     return no_zero;
 }
 
+
+// reveal cells that are guaranteed to be safe (Ex. a cell with a '1' that has 1 nearby flag is correct. reveal all the other cells around it)
+function safeMoves() {
+    console.log('t')
+    for (let cell_id in open_cells) {
+        let open_cell = getCellFromId(cell_id);
+        let open_cell_value = open_cell.value;
+        let safe = false;
+         // look at surrounding cells
+        for (let b = 0; b < open_cells[cell_id].length; b++) {
+            let border_cell = getCellFromId(border_cells[open_cells[cell_id][b]]);
+             if (border_cell.value == -1) {
+                open_cell_value--;
+            }
+             // this group of cells is safe
+            if (open_cell_value <= 0) {
+                safe = true;
+                break;
+            }
+        }
+         // reveal all other cells
+        if (safe) {
+            for (let b = 0; b < open_cells[cell_id].length; b++) {
+                console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`);
+                clickCell(border_cells[open_cells[cell_id][b]], 0);
+            }
+            return true;
+        }
+        return false;
+    }
+}
+function processMatrix(reduced_mine_matrix){
+    let columns = reduced_mine_matrix[0].length;
+    let changed = false
+    for (let y = 0; y < reduced_mine_matrix.length; y++) {
+        //console.log(reduced_mine_matrix[y])
+        let psum = 0
+        let nsum = 0
+        let qsum = 0
+        let pos = false
+        let neg = false
+        let flagAll = false
+        let flagPos = false
+        let flagNeg = false
+        //console.log(columns)
+        for (let x = 0; x <= columns - 2; x++) {
+            let num = reduced_mine_matrix[y][x]
+            if (num > 0){
+                pos = true
+                psum = psum + num
+            }else if(num < 0) {
+                neg = true
+                nsum = nsum + num
+            }
+            
+        }
+        // console.log("psum",psum,"val", reduced_mine_matrix[y][columns-1])
+        if (pos && neg){
+            if ((psum+nsum) == reduced_mine_matrix[y][columns-1]){flagAll = true}
+        }else if(pos){
+            if ((psum) == reduced_mine_matrix[y][columns-1]){flagPos = true}
+        }else if(neg){
+            if ((nsum) == reduced_mine_matrix[y][columns-1]){flagNeg = true}
+        }
+        // console.log("flagALL", flagAll,"flagPos",flagPos, flagNeg)
+        var clickedArr = Array(columns-1).fill(false)
+        for (let x = 0; x <= columns - 2; x++) {
+            cellValue = reduced_mine_matrix[y][x]
+            if (flagAll) {
+                if (reduced_mine_matrix[y][x] != 0){
+                    let cell = getCellFromId(border_cells[x]);
+                    if (!clickedArr[x]){
+                        clickedArr[x] = true 
+                        changed = clickCell(cell.position[0], cell.position[1], 2)
+                    }
+                }
+            } else if (flagPos){
+                let cell = getCellFromId(border_cells[x]);
+                // console.log("pos", cellValue)
+                if (cellValue > 0){
+                    if (!clickedArr[x]){
+                        clickedArr[x] = true
+                        
+                        changed = clickCell(cell.position[0], cell.position[1], 2);
+                    }
+                } else if (cellValue < 0){
+                    if (!clickedArr[x]){
+                        clickedArr[x] = true
+                        changed = clickCell(cell.position[0], cell.position[1], 0);
+                    }
+                }
+            } else if (flagNeg){
+                let cell = getCellFromId(border_cells[x]);
+                if (cellValue > 0){
+                    if (!clickedArr[x]){
+                        clickedArr[x] = true
+                        
+                        changed = clickCell(cell.position[0], cell.position[1], 0);
+                    }
+                } else if (cellValue < 0){
+                    if (!clickedArr[x]){
+                        clickedArr[x] = true
+                        
+                    }
+                }
+            }
+        }
+    }
+    console.log(changed)
+    return changed
+}
 // returns whether game is over
 let last_mine_matrix = "";
 function calculateMove() {
@@ -208,8 +334,10 @@ function calculateMove() {
     scanBoard();
 
     let mine_matrix = [];
+    let val_matrix = [];
     // fill 'mine_matrix'
     for (let cell_id in open_cells) {
+        val_matrix.push(cell_id)
         let b_cell_indexes = open_cells[cell_id];
         let new_array = [];
         new_array.length = border_cells.length + 1;
@@ -220,8 +348,9 @@ function calculateMove() {
             let b_cell = getCellFromId(border_cells[b_cell_index]);
 
             let val = b_cell.value;
-
-            if (val == -2) val = 1;
+// -2 : unclicked, -1 : flagged, 0 : no number, 1 - 8 : number
+            //console.log("val___---", val);
+            if (val == -2 || val == -1) val = 1;
             if (val > 0) val = 1;
             new_array[b_cell_index] = val;
         }
@@ -232,102 +361,61 @@ function calculateMove() {
     // gaussian elimination
     // console.log(JSON.stringify(mine_matrix))
     let columns = mine_matrix[0].length;
-    mine_matrix = gauss(mine_matrix);
+    let reduced_mine_matrix = gauss(mine_matrix);
 
 
-/*
-Set the maximum bound and minimum bound to zero
-For each column in the row (not including the augmented column of course) if the number is positive add it to the maximum bound and if it is negative then add it to the minimum bound.
-If the augmented column value is equal to the minimum bound then
-   All of the negative numbers in that row are mines and all of the positive values in that row are not mines
-else if the augmented column value is equal to the maximum bound then
-   All of the negative numbers in that row are not mines and all of the positive values in that row are mines.
-*/
-    let mine_indexes = [];
-    function suspectMines (row, sign) {
-        for (let m = 0; m < columns - 1; m++) {
-            if (mine_matrix[row][m] * sign > 0 && !mine_indexes.includes(m)) {
-                mine_indexes.push(m);
-            }
-        }
+    //console.log(JSON.stringify(reduced_mine_matrix))
+    if (!processMatrix(mine_matrix)){
+        processMatrix(reduced_mine_matrix)
     }
+    scanBoard()
+    let noChanges = true
 
-    // attempt to get a full/partial solution
-    for (let y = 0; y < mine_matrix.length; y++) {
-        let min_bound = 0, max_bound = 0;
-        for (let x = 0; x < columns - 1; x++) {
-            if (mine_matrix[y][x] < 0)
-                min_bound += mine_matrix[y][x];
-            else
-                max_bound += mine_matrix[y][x];
-        }
-        // console.log("min",min_bound,"max",max_bound,"row",mine_matrix[y])
-
-        // aug column == MIN bound -> NEG numbers are mines
-        if (mine_matrix[y][columns -1] == min_bound) {
-            suspectMines(y, -1);
-        }
-
-        // aug column == MAX bound -> POS numbers are mines
-        if (mine_matrix[y][columns -1] == max_bound) {
-            suspectMines(y, 1);
-        }
-    }
-
-    // 
- 
-    // label the suspected spaces
-    for (let s = 0; s < mine_indexes.length; s++) {
-        let cell = getCellFromId(border_cells[mine_indexes[s]]); 
-        clickCell(cell.position[0], cell.position[1], 2);
-        return !isGameOver();
-    }
-
-    // reveal cells that are guaranteed to be safe (Ex. a cell with a '1' that has 1 nearby flag is correct. reveal all the other cells around it)
     for (let cell_id in open_cells) {
         let open_cell = getCellFromId(cell_id);
         let open_cell_value = open_cell.value;
         let safe = false;
-
-        // look at surrounding cells
+         // look at surrounding cells
         for (let b = 0; b < open_cells[cell_id].length; b++) {
             let border_cell = getCellFromId(border_cells[open_cells[cell_id][b]]);
-
-            if (border_cell.value == -1) {
+             if (border_cell.value == -1) {
                 open_cell_value--;
             }
-
-            // this group of cells is safe
-            if (open_cell_value <= 0) {
+             // this group of cells is safe
+            if (open_cell_value == 0) {
                 safe = true;
                 break;
             }
         }
-
-        // reveal all other cells
+         // reveal all other cells
         if (safe) {
-            console.log(`Revealing ${open_cells[cell_id].length} safe cells...`)
             for (let b = 0; b < open_cells[cell_id].length; b++) {
-                clickCell(border_cells[open_cells[cell_id][b]], 0);
+                let bvalue = getCellFromId(border_cells[open_cells[cell_id][b]]).value
+                if (bvalue == -2){
+                    console.log(`${border_cells[open_cells[cell_id][b]]} is safe. Revealing...`, open_cell.value);
+                    clickCell(border_cells[open_cells[cell_id][b]], 0);
+                }
             }
         }
     }
 
     if (JSON.stringify(mine_matrix) != last_mine_matrix) {
         last_mine_matrix = JSON.stringify(mine_matrix);
-        console.log("suspecting",mine_indexes.length,"mines...")
-        return calculateMove();
+        //console.log("suspecting",mine_indexes.length,"mines...")
+        return true// calculateMove();
     } else if (!isGameOver()) {
-        console.log("flagged",mine_indexes.length,"mines.")
+        //console.log("flagged",mine_indexes.length,"mines.")
         mine_matrix = "";
         return showProbabilities();
     }
 }
 
 let iterations = 0;
-let max_moves = 150;
+let max_moves = 10;
 function runAI() {
-    if (iterations == 0) clickCell(0,0,0);
+    //calculateMove()
+    //safeMoves()
+    if (iterations == 0) clickCell(2,2,0);
 
     // clear any red cells
     for (let id of min_count) {
