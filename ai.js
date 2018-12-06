@@ -423,7 +423,7 @@ function calculateMove() {
 let iterations = 0;
 let max_moves = 10;
 function runAI() {
-    if (iterations == 0) clickCell(5,10,0);
+    if (iterations == 0) clickCell(5,5,0);
 
     // clear any red cells
     for (let id of min_count) {
