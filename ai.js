@@ -40,6 +40,7 @@ function clickCell(x, y, button) {
     let element;
     if (button == undefined) {
         let cell = getCellFromId(x);
+        // dont flag a cell thats been flagged
         if (cell.value == -1 && button == 2){
             return false;
         }
@@ -47,6 +48,7 @@ function clickCell(x, y, button) {
         button = y;
     } else {
         let cell = getCell(x,y); 
+        // dont flag a cell thats been flagged
         if (cell.value == -1 && button == 2){
             return false;
         }
@@ -247,6 +249,8 @@ function safeMoves() {
         return false;
     }
 }
+// this function takes the matrix ( either reduced or not ) and decides
+// if it can which locations are mines
 function processMatrix(reduced_mine_matrix){
     let columns = reduced_mine_matrix[0].length;
     let changed = false
@@ -260,7 +264,7 @@ function processMatrix(reduced_mine_matrix){
         let flagAll = false
         let flagPos = false
         let flagNeg = false
-        //console.log(columns)
+        // calculate positive and negative sums
         for (let x = 0; x <= columns - 2; x++) {
             let num = reduced_mine_matrix[y][x]
             if (num > 0){
@@ -272,7 +276,7 @@ function processMatrix(reduced_mine_matrix){
             }
             
         }
-        // console.log("psum",psum,"val", reduced_mine_matrix[y][columns-1])
+        // figure out which to flag, positive or negative
         if (pos && neg){
             if ((psum+nsum) == reduced_mine_matrix[y][columns-1]){flagAll = true}
         }else if(pos){
@@ -280,8 +284,8 @@ function processMatrix(reduced_mine_matrix){
         }else if(neg){
             if ((nsum) == reduced_mine_matrix[y][columns-1]){flagNeg = true}
         }
-        // console.log("flagALL", flagAll,"flagPos",flagPos, flagNeg)
         var clickedArr = Array(columns-1).fill(false)
+        // go through the row and click all the flags that have been determined to be mines
         for (let x = 0; x <= columns - 2; x++) {
             cellValue = reduced_mine_matrix[y][x]
             if (flagAll) {
@@ -294,7 +298,6 @@ function processMatrix(reduced_mine_matrix){
                 }
             } else if (flagPos){
                 let cell = getCellFromId(border_cells[x]);
-                // console.log("pos", cellValue)
                 if (cellValue > 0){
                     if (!clickedArr[x]){
                         clickedArr[x] = true
@@ -335,6 +338,7 @@ function calculateMove() {
 
     let mine_matrix = [];
     let val_matrix = [];
+    
     // fill 'mine_matrix'
     for (let cell_id in open_cells) {
         val_matrix.push(cell_id)
@@ -348,7 +352,7 @@ function calculateMove() {
             let b_cell = getCellFromId(border_cells[b_cell_index]);
 
             let val = b_cell.value;
-// -2 : unclicked, -1 : flagged, 0 : no number, 1 - 8 : number
+            // -2 : unclicked, -1 : flagged, 0 : no number, 1 - 8 : number
             //console.log("val___---", val);
             if (val == -2 || val == -1) val = 1;
             if (val > 0) val = 1;
@@ -359,12 +363,10 @@ function calculateMove() {
     }
 
     // gaussian elimination
-    // console.log(JSON.stringify(mine_matrix))
     let columns = mine_matrix[0].length;
     let reduced_mine_matrix = gauss(mine_matrix);
 
 
-    //console.log(JSON.stringify(reduced_mine_matrix))
     if (!processMatrix(mine_matrix)){
         processMatrix(reduced_mine_matrix)
     }
@@ -401,10 +403,8 @@ function calculateMove() {
 
     if (JSON.stringify(mine_matrix) != last_mine_matrix) {
         last_mine_matrix = JSON.stringify(mine_matrix);
-        //console.log("suspecting",mine_indexes.length,"mines...")
         return true// calculateMove();
     } else if (!isGameOver()) {
-        //console.log("flagged",mine_indexes.length,"mines.")
         mine_matrix = "";
         return showProbabilities();
     }
@@ -413,9 +413,7 @@ function calculateMove() {
 let iterations = 0;
 let max_moves = 10;
 function runAI() {
-    //calculateMove()
-    //safeMoves()
-    if (iterations == 0) clickCell(2,2,0);
+    if (iterations == 0) clickCell(5,5,0);
 
     // clear any red cells
     for (let id of min_count) {
