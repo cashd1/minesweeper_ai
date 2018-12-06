@@ -3,6 +3,7 @@
 
 var size = []; // [width, height]
 
+// checks for the smiley face that appears when game is over
 function isGameOver() {
     let el_face = document.getElementById("face");
     if (el_face.classList.contains("facesmile"))
@@ -10,12 +11,14 @@ function isGameOver() {
     return true;
 }
 
+// gets the cell based on id
 function getCellFromId(id) {
     let position = id.replace("#","").split('_');
     position = [parseInt(position[1])-1, parseInt(position[0])-1];
     return getCell(position[0], position[1]);
 }
 
+// getCell(x,y) gets the value, element, id, and position of a cell at x y returns nothing if x and y arent valid coords
 function getCell(x, y) {
     let index = x + size[0] * y
     if (x < 0 || y < 0 || y > size[1] || x > size[0] || index < 0 || index >= cells.length || !cells[index])
@@ -35,6 +38,12 @@ function getCell(x, y) {
      };
 }
 
+// clickCell(x,y,button)
+// when given all 3 parameters clicks the cell with pos x,y using the button passed
+// button ( 0 = left click, 2 = right click(Flag mine))
+// returns true if cell was clicked succesfully
+// returns false if cell you tried to right click(2) was already flagged
+// if only 2 variables passsed function assumes first variable is the cell id and parses x and y from that
 function clickCell(x, y, button) {
     console.log("clicking",y+1,"_",x+1,button)
     let element;
@@ -67,6 +76,8 @@ var cells = [];
 var border_cells = [];
 var mines_left = 0;
 var open_cells = {};    // { cell_id : [border_cells indexes] }
+
+// scamBoard scans the board listing all border cells and all the open cells along with what cells border which
 function scanBoard() {
     cells = $("#game .square"); 
     border_cells = [];
@@ -221,7 +232,6 @@ function showProbabilities() {
 
 // reveal cells that are guaranteed to be safe (Ex. a cell with a '1' that has 1 nearby flag is correct. reveal all the other cells around it)
 function safeMoves() {
-    console.log('t')
     for (let cell_id in open_cells) {
         let open_cell = getCellFromId(cell_id);
         let open_cell_value = open_cell.value;
@@ -338,7 +348,7 @@ function calculateMove() {
 
     let mine_matrix = [];
     let val_matrix = [];
-    
+
     // fill 'mine_matrix'
     for (let cell_id in open_cells) {
         val_matrix.push(cell_id)
@@ -413,7 +423,7 @@ function calculateMove() {
 let iterations = 0;
 let max_moves = 10;
 function runAI() {
-    if (iterations == 0) clickCell(5,5,0);
+    if (iterations == 0) clickCell(5,10,0);
 
     // clear any red cells
     for (let id of min_count) {
